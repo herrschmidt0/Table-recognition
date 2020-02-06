@@ -3,7 +3,8 @@ import glob
 from flask import Flask, request, flash, redirect, url_for
 from werkzeug.utils import secure_filename
 
-import contour
+import preprocess
+import line_fitter
 
 app = Flask(__name__)
 
@@ -27,6 +28,10 @@ def index():
 		else:
 			file_upload_html += "<p>There is no uploaded image yet.</p>"
 
+		filelist = glob.glob(os.path.join('static', "result*"))
+		for f in filelist:
+			os.remove(f)
+
 		return '''
 		<!doctype html>
 		<title>Table recognition</title>
@@ -36,14 +41,11 @@ def index():
 		<h1>Methods</h1>
 		
 		<ul> 
-			<li><a href='morph-linedetect-contour'>Contour finding based table-cell detection 
-				(with line filtering using morphology)</a>
+			<li><a href='morph-linedetect-contour'>Table-cell detection based on morphology </a>
 			</li>
-			<li><a href='simple-contour'>Contour finding based table-cell detection 
-				(without line detection)</a>
+			<li><a href='corners'> Harris vs FAST corner detection </a>
 			</li>
-			<li><a href='simple-contour-7p'>Contour finding based table-cell detection 
-				(without line detection + heptagon shaped cells)</a>
+			<li><a href='line-fit'> Fit horizontal lines to corner points (RANSAC) </a>
 			</li>
 		</ul>
 		'''
@@ -67,19 +69,19 @@ def index():
 
 @app.route('/morph-linedetect-contour')
 def morph_linedetect_contour():
-	contour.contour(True, 4)
+	preprocess.recognize_tables()
 	return show_all_imgs()
 
 
-@app.route('/simple-contour')
-def simple_contour():
-	contour.contour(False, 4)
+@app.route('/corners')
+def corners():
+	line_fitter.corner_detector(save_imgs=True)
 	return show_all_imgs()
 
 
-@app.route('/simple-contour-7p')
-def simple_contour_7p():
-	contour.contour(False, 7)
+@app.route('/line-fit')
+def line_fit():
+	line_fitter.fit_line()
 	return show_all_imgs()
 
 
@@ -88,8 +90,8 @@ def show_all_imgs():
 	html_results = "<img src='static/image.jpg' width=500>"
 
 	id = 1
-	while os.path.isfile("static/result" + str(id) + ".png"):
-		html_results += "<img src='static/result" + str(id) + ".png' width=500>"
+	while os.path.isfile("static/result" + str(id) + ".jpg"):
+		html_results += "<img src='static/result" + str(id) + ".jpg' width=500>"
 		id += 1
 
 	return html_results
